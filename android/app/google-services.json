@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "873805128271",
+    "project_id": "ristos-7ad7f",
+    "storage_bucket": "ristos-7ad7f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:873805128271:android:aaa8cb83503086a9b4803a",
+        "android_client_info": {
+          "package_name": "com.example.ristos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7iuJ9VbwMkqhf18MK4czbrp1Pu_LKObI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

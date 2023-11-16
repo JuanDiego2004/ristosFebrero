@@ -1,0 +1,689 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:line_icons/line_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+class NuevaVenta extends StatefulWidget {
+  @override
+  _NuevaVentaState createState() => _NuevaVentaState();
+}
+
+class _NuevaVentaState extends State<NuevaVenta> {
+  TextEditingController clientNameController = TextEditingController();
+  TextEditingController _clientSearchController = TextEditingController();
+
+  String clientQuery = '';
+  String selectedClient = '';
+  String productQuery = '';
+  List<SelectedProduct> selectedProducts = [];
+  List<TextEditingController> cantidadControllers = [];
+  double totalAmount = 0.0;
+  List<Map<String, dynamic>> productsData =
+      []; // Declaración de la lista de productos
+
+  TextEditingController _customerController = TextEditingController();
+  TextEditingController _direccionController = TextEditingController();
+  String _selectedDocumentType = 'DNI';
+  GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
+
+
+
+  void _refreshScreen() {
+    setState(() {
+      _clientSearchController.clear();
+      clientQuery = '';
+      _customerController.clear();
+      _direccionController.clear();
+      _selectedDocumentType = 'DNI';
+      productQuery = '';
+      selectedClient = '';
+      selectedProducts = [];
+      cantidadControllers = [];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+          title: Text(
+            'Nueva Venta',
+            style: GoogleFonts.concertOne(fontSize: 22, color: Colors.white),
+          ),
+          leading: IconButton(
+            icon: Image.asset(
+              "assets/add.png",
+              width: 40,
+              height: 40,
+            ),
+            onPressed: () {
+              _showAddCustomerDialog(context);
+            },
+          ),
+        ),
+        body: RefreshIndicator(
+          child: Column(
+            children: <Widget>[
+              _buildClientSearch(),
+              _buildProductSearch(),
+              _buildSelectedProductsList(),
+            ],
+          ),
+          key: _refreshIndicatorKey,
+          onRefresh: () async {
+            _refreshScreen();
+          },
+        ));
+  }
+
+  void _showAddCustomerDialog(BuildContext context) {
+    // Controladores para los campos de entrada
+    TextEditingController nameController = TextEditingController();
+    TextEditingController documentNumberController = TextEditingController();
+    TextEditingController addressController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Registrar Cliente'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: <Widget>[
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Nombre del Cliente'),
+                ),
+                TextField(
+                  controller: documentNumberController,
+                  decoration: InputDecoration(labelText: 'Número de DNI/RUC'),
+                ),
+                TextField(
+                  controller: addressController,
+                  decoration: InputDecoration(labelText: 'Dirección'),
+                ),
+                DropdownButton<String>(
+                  items: ['DNI', 'RUC'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedDocumentType = newValue!;
+                    });
+                  },
+                  value: _selectedDocumentType,
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Guardar'),
+              onPressed: () async {
+                // Obtener los valores de los campos de entrada
+                String customerName = nameController.text;
+                String documentNumber = documentNumberController.text;
+                String address = addressController.text;
+                String documentType = _selectedDocumentType;
+
+                // Validar que los campos no estén vacíos
+                if (customerName.isNotEmpty &&
+                    documentNumber.isNotEmpty &&
+                    address.isNotEmpty) {
+                  try {
+                    // Crear un nuevo documento en la colección "clientes"
+                    await FirebaseFirestore.instance
+                        .collection('clientes')
+                        .add({
+                      'nombre': customerName,
+                      'tipoDocumento': documentType,
+                      'numeroDocumento': documentNumber,
+                      'direccion': address,
+                    });
+                    // Mostrar un mensaje en pantalla
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Cliente agregado correctamente.'),
+                      ),
+                    );
+                    // Mostrar en la consola si se guardó correctamente
+                    print('Cliente guardado exitosamente en Firestore');
+
+                    // Cerrar el diálogo
+                    Navigator.of(context).pop();
+                  } catch (e) {
+                    // Mostrar en la consola si hubo un error al guardar
+                    print('Error al guardar el cliente en Firestore: $e');
+                  }
+                } else {
+                  // Mostrar un mensaje de error si algún campo está vacío
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Ningún campo debe estar vacío.'),
+                    ),
+                  );
+                }
+              },
+            )
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildClientSearch() {
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            style: TextStyle(color: const Color.fromARGB(255, 216, 134, 134)),
+            controller: _clientSearchController,
+            decoration: InputDecoration(
+              fillColor: Color.fromARGB(255, 54, 54, 54),
+              filled: true,
+              labelText: 'Buscar Cliente',
+              labelStyle: TextStyle(
+                color: Colors.white, // Color del texto de la etiqueta
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            // Color del texto escrito
+            onChanged: (query) {
+              setState(() {
+                clientQuery = query;
+              });
+            },
+          ),
+        ),
+        if (clientQuery.isNotEmpty)
+          StreamBuilder<QuerySnapshot>(
+            stream:
+                FirebaseFirestore.instance.collection('clientes').snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return CircularProgressIndicator();
+              }
+
+              final filteredClients = snapshot.data!.docs.where((clientDoc) {
+                final clientData = clientDoc.data() as Map<String, dynamic>;
+                final clientName = clientData['nombre'];
+
+                if (clientName is String) {
+                  return clientName
+                      .toLowerCase()
+                      .contains(clientQuery.toLowerCase());
+                }
+
+                return false;
+              }).toList();
+
+              if (filteredClients.isEmpty) {
+                return Text(
+                  'No se encontraron resultados',
+                  style: TextStyle(color: Colors.white),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: filteredClients.length,
+                itemBuilder: (context, index) {
+                  final clientData =
+                      filteredClients[index].data() as Map<String, dynamic>;
+
+                  return ListTile(
+                    title: Text(
+                      clientData['nombre'],
+                      style: GoogleFonts.prompt(color: Colors.white),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        selectedClient = clientData['nombre'];
+                        _clientSearchController.text = selectedClient;
+                        clientQuery = '';
+                      });
+                    },
+                  );
+                },
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildProductSearch() {
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: TextField(
+            style: TextStyle(color: const Color.fromARGB(255, 216, 134, 134)),
+            decoration: InputDecoration(
+              fillColor: Color.fromARGB(255, 54, 54, 54),
+              filled: true,
+              labelStyle: TextStyle(color: Colors.white),
+              labelText: 'Buscar Producto',
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.white),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            onChanged: (query) {
+              setState(() {
+                productQuery = query;
+              });
+            },
+          ),
+        ),
+        if (productQuery.isNotEmpty)
+          StreamBuilder<QuerySnapshot>(
+            stream:
+                FirebaseFirestore.instance.collection('products').snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return CircularProgressIndicator();
+              }
+
+              final filteredProducts = snapshot.data!.docs.where((productDoc) {
+                final productData = productDoc.data() as Map<String, dynamic>;
+                final productName =
+                    productData['name'].toString().toLowerCase();
+
+                return productName.contains(productQuery.toLowerCase());
+              }).toList();
+
+              if (filteredProducts.isEmpty) {
+                return Text(
+                  'No se encontraron resultados',
+                  style: TextStyle(color: Colors.white),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: filteredProducts.length,
+                itemBuilder: (context, index) {
+                  final productData =
+                      filteredProducts[index].data() as Map<String, dynamic>;
+                  final productName = productData['name'];
+                  final productImage = productData["image"];
+                  print('URL de la imagen: $productImage');
+
+                  return ListTile(
+                    leading: productImage != null
+                        ? CachedNetworkImage(
+                            imageUrl: productImage,
+                            width: 50,
+                            height: 50,
+                            placeholder: (context, url) =>
+                                CircularProgressIndicator(),
+                            errorWidget: (context, url, error) =>
+                                Icon(Icons.error),
+                            imageBuilder: (context, imageProvider) {
+                              return Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  image: DecorationImage(
+                                    image: imageProvider,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: Icon(LineIcons.ad),
+                          ),
+                    title: Text(
+                      productName,
+                      style: GoogleFonts.prompt(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      'Precio: ${productData['price']}',
+                      style: GoogleFonts.prompt(
+                        color: Color.fromARGB(255, 206, 204, 204),
+                      ),
+                    ),
+                    onTap: () {
+                      final isProductSelected = selectedProducts.any(
+                        (item) => item.productName == productName,
+                      );
+
+                      if (isProductSelected) {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text('Aviso'),
+                              content: Text(
+                                'El producto ya está en la lista de seleccionados.',
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('OK'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      } else {
+                        cantidadControllers
+                            .add(TextEditingController(text: '1'));
+                        setState(() {
+                          selectedProducts.add(SelectedProduct(
+                              productName: productName,
+                              productImage: productImage,
+                              cantidad: 1,
+                              price: productData["price"].toDouble()));
+                        });
+                      }
+                    },
+                  );
+                },
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  // Agregar un botón al final de la lista de productos seleccionados.
+  Widget _buildSelectedProductsList() {
+    final totalAmount = calculateTotalAmount();
+    return Expanded(
+      child: Column(
+        children: <Widget>[
+          Text(
+            'Productos Seleccionados',
+            style: GoogleFonts.raleway(color: Colors.white, fontSize: 16),
+          ),
+          Divider(),
+          Expanded(
+            child: ListView.builder(
+              itemCount: selectedProducts.length,
+              itemBuilder: (context, index) {
+                final selectedProduct = selectedProducts[index];
+
+                return Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: ListTile(
+                        leading: CachedNetworkImage(
+                          imageUrl: selectedProduct.productImage,
+                          width: 50,
+                          height: 50,
+                          placeholder: (context, url) =>
+                              CircularProgressIndicator(),
+                          errorWidget: (context, url, error) =>
+                              Icon(Icons.error),
+                          imageBuilder: (context, imageProvider) {
+                            return Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: DecorationImage(
+                                  image: imageProvider,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        title: Text(
+                          selectedProduct.productName,
+                          style: GoogleFonts.slabo13px(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        width: 50,
+                        child: TextField(
+                          style: TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                              focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white)),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(9))),
+                          keyboardType: TextInputType.number,
+                          controller: cantidadControllers[index],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedProduct.cantidad =
+                                  int.tryParse(value) ?? 1;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Image.asset(
+                        "assets/delete.png",
+                        width: 40,
+                        height: 40,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          selectedProducts.removeAt(index);
+                          cantidadControllers.removeAt(index);
+                        });
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Text(
+            'Monto Total: \$${totalAmount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              saveSaleToFirestore(); // Guarda la venta en Firestore
+            },
+            child: Text('Finalizar Venta'),
+          )
+        ],
+      ),
+    );
+  }
+
+  double calculateTotalAmount() {
+    double total = 0.0;
+    for (var selectedProduct in selectedProducts) {
+      total += (selectedProduct.cantidad * selectedProduct.price);
+    }
+    return total;
+  }
+
+  Future<void> saveSaleToFirestore() async {
+    
+    if (selectedClient.isEmpty || selectedProducts.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Error'),
+            content: Text(
+                'Por favor, seleccione un cliente y al menos un producto antes de finalizar la venta.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+      return; // Sale de la función si no se cumple la validación
+    }
+
+
+  // Crea un nuevo documento en la colección "ventas"
+    final saleDocument = FirebaseFirestore.instance.collection('ventas').doc();
+
+    final List<Map<String, dynamic>> productsData = [];
+    for (final selectedProduct in selectedProducts) {
+      // Resta la cantidad vendida del stock del producto en Firestore
+      await subtractProductStock(selectedProduct.productId, selectedProduct.cantidad);
+
+      // Agrega el producto a la lista de productos vendidos
+      productsData.add({
+        'nombre': selectedProduct.productName,
+        'cantidad': selectedProduct.cantidad,
+        'precio': selectedProduct.price,
+      });
+    }
+
+    // Crea un mapa con los detalles de la venta
+    final saleData = {
+      'clienteNombre': selectedClient,
+      'montoTotal': calculateTotalAmount(),
+      'productos': productsData,
+      'fechaVenta': DateTime.now(),
+    };
+
+    // Guarda la venta en Firestore
+    await saleDocument.set(saleData);
+
+    // Crea un nuevo documento en la colección "ventas"
+    // final saleDocument = FirebaseFirestore.instance.collection('ventas').doc();
+
+    // Crea un mapa con los detalles de la venta
+    // final saleData = {
+    //   'clienteNombre':
+    //       selectedClient, // Guarda el nombre del cliente en lugar del ID
+    //   'montoTotal': calculateTotalAmount(),
+    //   'productos': selectedProducts
+    //       .map((product) => {
+    //             'nombre': product.productName,
+    //             'cantidad': product.cantidad,
+    //             'precio': product.price,
+    //           })
+    //       .toList(),
+    //   'fechaVenta': DateTime.now(),
+    // };
+
+    // Guarda la venta en Firestore
+    await saleDocument.set(saleData);
+
+    // Muestra un mensaje de éxito
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Venta Guardada'),
+          content: Text('La venta se ha guardado con éxito.'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+ // Método para restar la cantidad de productos del stock en Firestore
+  Future<void> subtractProductStock(String productId, int quantityToSubtract) async {
+    final productReference = FirebaseFirestore.instance.collection('products').doc(productId);
+    try {
+      final productSnapshot = await productReference.get();
+      if (productSnapshot.exists) {
+        final currentStock = productSnapshot.data()!['stock'];
+        if (currentStock >= quantityToSubtract) {
+          // Resta la cantidad vendida del stock actual
+          final newStock = currentStock - quantityToSubtract;
+          await productReference.update({'stock': newStock});
+        } else {
+          // No hay suficiente stock para vender
+          showDialog(
+            context: context,
+            builder:  (context) {
+            return AlertDialog(
+              title: Text('Error'),
+              content: Text('No hay suficiente stock para vender esa cantidad del producto.'),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('OK'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+          );
+        }
+      }
+    } catch (e) {
+      print('Error al restar el stock del producto: $e');
+      // Maneja el error según tus necesidades
+    }
+  }
+
+
+class SelectedProduct {
+   String productId;
+  String productName;
+  String productImage;
+  int cantidad;
+  double price;
+
+  SelectedProduct(
+    
+      {
+          required this.productId,
+        required this.productImage,
+      required this.productName,
+      required this.cantidad,
+      required this.price});
+}

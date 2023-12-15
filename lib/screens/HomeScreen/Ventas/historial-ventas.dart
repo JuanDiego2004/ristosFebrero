@@ -1,9 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:line_icons/line_icons.dart';
+import 'package:ristos/screens/HomeScreen/Ventas/EstadisticaVentas.dart';
+
+import 'package:ristos/screens/HomeScreen/Ventas/gsnsncis.dart';
 import 'package:ristos/screens/components/detalles-venta.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 
@@ -22,6 +26,7 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
 
   List<ExpansionItem> expansionItems = [];
   bool isRefreshing = false;
+  DateTime selectedDate = DateTime.now();
   @override
   void initState() {
     super.initState();
@@ -37,6 +42,14 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
     setState(() {
       sales = salesQuery.docs;
 
+      DateTime fechaActual = DateTime.now();
+      DateTime fechaInicioSemana = DateTime(fechaActual.year, fechaActual.month,
+          fechaActual.day - fechaActual.weekday + 1);
+      sales = salesQuery.docs.where((venta) {
+        final fechaVenta = venta["fechaVenta"] as Timestamp;
+        final fechaVentaDateTime = fechaVenta.toDate();
+        return fechaVentaDateTime.isAfter(fechaInicioSemana);
+      }).toList();
       // Inicializar los elementos de expansión con fechas únicas
       final uniqueDates = Set<String>();
       sales.forEach((sale) {
@@ -191,6 +204,22 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
     return Scaffold(
       backgroundColor: Colors.black, // Establecer el fondo negro aquí
       appBar: AppBar(
+        actions: [
+          Padding(
+            padding: EdgeInsets.all(9.0),
+            child: IconButton(
+              icon: Icon(
+                LineIcons.stumbleuponCircle,
+                color: Colors.white,
+                size: 34,
+              ),
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => EstadisticaVentas()));
+              },
+            ),
+          )
+        ],
         backgroundColor: Colors.black,
         title: Text(
           'Historial de Ventas',
@@ -304,9 +333,23 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                                             },
                                           );
                                         },
-                                      )
-
-                                      // En HistorialVentasScreen
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          //aqui redirije a otra screen en donde se mostrara dados de ventas por dia y semanal
+                                          Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      GananciasScreen(
+                                                        sales: sales,
+                                                        selectedDate:
+                                                            DateTime.parse(
+                                                                item.date),
+                                                      )));
+                                        },
+                                        icon: const Icon(LineIcons.history),
+                                        color: Colors.white,
+                                      ),
                                     ],
                                   ),
                                 ],

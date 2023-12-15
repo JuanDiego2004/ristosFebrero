@@ -48,8 +48,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final stock = int.tryParse(stockController.text) ?? 0;
 
     if (name.isEmpty || price <= 0 || stock <= 0) {
-      // Realiza una validación básica de los campos.
-      // Puedes agregar más validaciones según tus necesidades.
+      // Validación de campos
       showDialog(
         context: context,
         builder: (context) {
@@ -74,7 +73,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
 
     if (imageFile == null) {
-      // Asegúrate de que se haya cargado una imagen.
+      // Validación de imagen
       showCupertinoDialog(
         context: context,
         builder: (context) {
@@ -103,8 +102,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
 
     // Sube la imagen a Firebase Storage y obtén su URL.
-    final imageUrl =
-        await uploadImageToStorage(imageFile!, "assets/delete.png");
+    final productId =
+        DateTime.now().millisecondsSinceEpoch.toString(); // ID del producto
+    final imageFileName = '$productId.jpg'; // Nombre único del archivo
+    final imageUrl = await uploadImageToStorage(imageFile!, imageFileName);
 
     // Guarda la información del producto en Firestore.
     await FirebaseFirestore.instance.collection('products').add({
@@ -120,7 +121,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       builder: (context) {
         return CupertinoAlertDialog(
           title: Text('Aviso'),
-          content: Text('Producto registrado con exito'),
+          content: Text('Producto registrado con éxito'),
           actions: <Widget>[
             CupertinoDialogAction(
               child: Text('OK'),
@@ -140,6 +141,104 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
   }
 
+  // Future<void> _saveProduct() async {
+  //   final name = nameController.text;
+  //   final price = double.tryParse(priceController.text) ?? 0.0;
+  //   final stock = int.tryParse(stockController.text) ?? 0;
+
+  //   if (name.isEmpty || price <= 0 || stock <= 0) {
+  //     // Realiza una validación básica de los campos.
+  //     // Puedes agregar más validaciones según tus necesidades.
+  //     showDialog(
+  //       context: context,
+  //       builder: (context) {
+  //         return AlertDialog(
+  //           title: Text('Error', style: TextStyle(color: Colors.white)),
+  //           content: Text(
+  //             'Por favor, complete todos los campos correctamente.',
+  //             style: TextStyle(color: Colors.white),
+  //           ),
+  //           actions: <Widget>[
+  //             TextButton(
+  //               child: Text('OK', style: TextStyle(color: Colors.white)),
+  //               onPressed: () {
+  //                 Navigator.of(context).pop();
+  //               },
+  //             ),
+  //           ],
+  //         );
+  //       },
+  //     );
+  //     return;
+  //   }
+
+  //   if (imageFile == null) {
+  //     // Asegúrate de que se haya cargado una imagen.
+  //     showCupertinoDialog(
+  //       context: context,
+  //       builder: (context) {
+  //         return CupertinoAlertDialog(
+  //           title: Text('Error'),
+  //           content: Text('Error al subir el archivo'),
+  //           actions: <Widget>[
+  //             CupertinoDialogAction(
+  //               child: Text('OK'),
+  //               onPressed: () {
+  //                 Navigator.of(context).pop();
+  //                 Navigator.of(context)
+  //                     .pop(); // Regresar a la pantalla anterior
+  //               },
+  //             ),
+  //           ],
+  //         );
+  //       },
+  //     );
+  //     return;
+  //   }
+
+  //   // Muestra el CircularProgressIndicator mientras se guarda
+  //   setState(() {
+  //     isSaving = true;
+  //   });
+
+  //   // Sube la imagen a Firebase Storage y obtén su URL.
+  //   final imageUrl =
+  //       await uploadImageToStorage(imageFile!, "assets/delete.png");
+
+  //   // Guarda la información del producto en Firestore.
+  //   await FirebaseFirestore.instance.collection('products').add({
+  //     'name': name,
+  //     'price': price,
+  //     'stock': stock,
+  //     'image': imageUrl,
+  //   });
+
+  //   // Muestra un mensaje de éxito y regresa a la pantalla anterior.
+  //   showCupertinoDialog(
+  //     context: context,
+  //     builder: (context) {
+  //       return CupertinoAlertDialog(
+  //         title: Text('Aviso'),
+  //         content: Text('Producto registrado con exito'),
+  //         actions: <Widget>[
+  //           CupertinoDialogAction(
+  //             child: Text('OK'),
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //               Navigator.of(context).pop(); // Regresar a la pantalla anterior
+  //             },
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+
+  //   // Detiene el CircularProgressIndicator
+  //   setState(() {
+  //     isSaving = false;
+  //   });
+  // }
+
   Future<String> uploadImageToStorage(
       XFile imageFile, String imageFileName) async {
     final storage = FirebaseStorage.instance;
@@ -153,6 +252,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     return imageUrl;
   }
+
+  // Future<String> uploadImageToStorage(
+  //     XFile imageFile, String imageFileName) async {
+  //   final storage = FirebaseStorage.instance;
+  //   final storageRef = storage.ref().child('productos/$imageFileName');
+
+  //   final Uint8List imageBytes = await File(imageFile.path).readAsBytes();
+
+  //   await storageRef.putData(imageBytes);
+
+  //   final String imageUrl = await storageRef.getDownloadURL();
+
+  //   return imageUrl;
+  // }
 
   @override
   Widget build(BuildContext context) {

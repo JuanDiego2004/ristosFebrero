@@ -12,7 +12,6 @@ void main() async {
   await Firebase.initializeApp();
   //pesistencia firestore pero da error
   //await FirebaseFirestore.instance.enablePersistence();
-
   runApp(const MyApp());
 }
 

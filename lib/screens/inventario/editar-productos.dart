@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:ristos/screens/HomeScreen/EditProductAndClient/lista-de-clientes.dart';
 import 'package:ristos/screens/inventario/add-product.dart';
+import 'package:ristos/screens/inventario/inventario-screen.dart';
 
 class ProductListScreen extends StatelessWidget {
   @override
@@ -67,6 +68,7 @@ class ProductListScreen extends StatelessWidget {
                     final productPrice = product['price'] ?? 0.0;
                     final productImage = product['image'];
                     final productStock = product["stock"] ?? 0;
+                    final productGanancia = product["gananciaPorPaquete"] ?? 0;
 
                     return ListTile(
                       leading: productImage != null
@@ -97,6 +99,12 @@ class ProductListScreen extends StatelessWidget {
                           ),
                           Text(
                             "Stock: $productStock",
+                            style: TextStyle(
+                                color:
+                                    const Color.fromARGB(255, 173, 173, 173)),
+                          ),
+                          Text(
+                            "Ganancia por Paquete: $productGanancia",
                             style: TextStyle(
                                 color:
                                     const Color.fromARGB(255, 173, 173, 173)),
@@ -214,6 +222,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   late TextEditingController nameController;
   late TextEditingController priceController;
   late TextEditingController stockController;
+  late TextEditingController gananciaController;
   late XFile? imageFile;
   bool isLoading = false;
   final ImagePicker _picker = ImagePicker();
@@ -223,6 +232,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     super.initState();
     nameController = TextEditingController();
     priceController = TextEditingController();
+    gananciaController = TextEditingController();
     imageFile = null;
   }
 
@@ -331,6 +341,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ),
               ),
             ),
+            const SizedBox(
+              height: 10,
+            ),
             TextFormField(
               style: TextStyle(color: Colors.white),
               controller:
@@ -340,6 +353,34 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 fillColor: Color.fromARGB(255, 54, 54, 54),
                 filled: true,
                 labelText: 'Stock', // Etiqueta del campo de stock
+                labelStyle: TextStyle(
+                  color: Colors.white,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+            const SizedBox(
+              height: 10,
+            ),
+            TextFormField(
+              style: TextStyle(color: Colors.white),
+              controller:
+                  gananciaController, // Asocia el controlador al campo de stock
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                fillColor: Color.fromARGB(255, 54, 54, 54),
+                filled: true,
+                labelText: "monto de ganancia", // Etiqueta del campo de stock
                 labelStyle: TextStyle(
                   color: Colors.white,
                 ),
@@ -375,6 +416,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 final newName = nameController.text;
                 final newPrice = double.tryParse(priceController.text);
                 final newStock = int.tryParse(stockController.text);
+                final newGanancia = double.tryParse(gananciaController.text);
 
                 if (newName.isNotEmpty) {
                   updatedProductData['name'] = newName;
@@ -384,6 +426,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 }
                 if (newStock != null && newStock >= 0) {
                   updatedProductData['stock'] = newStock;
+                }
+                if (newGanancia != null && newGanancia >= 0) {
+                  updatedProductData["gananciaPorPaquete"] = newGanancia;
                 }
                 if (imageFile != null) {
                   final imageUrl = await uploadImageToStorage(imageFile!);

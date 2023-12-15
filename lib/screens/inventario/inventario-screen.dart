@@ -179,16 +179,17 @@ class _InventarioScreenState extends State<InventarioScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-
-                             Expanded(
-  child: CachedNetworkImage(
-    imageUrl: product.imageUrl,
-    placeholder: (context, url) => CircularProgressIndicator(),
-    errorWidget: (context, url, error) => Icon(Icons.error),
-    height: 200,
-    fit: BoxFit.fill,
-  ),
-),
+                              Expanded(
+                                child: CachedNetworkImage(
+                                  imageUrl: product.imageUrl,
+                                  placeholder: (context, url) =>
+                                      CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) =>
+                                      Icon(Icons.error),
+                                  height: 200,
+                                  fit: BoxFit.fill,
+                                ),
+                              ),
                               Text(
                                 product.name,
                                 style: GoogleFonts.akatab(

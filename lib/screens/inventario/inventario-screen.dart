@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:ristos/screens/HomeScreen/EditProductAndClient/lista-de-clientes.dart';
-import 'package:ristos/screens/inventario/editar-productos.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class Product {
@@ -77,6 +76,64 @@ class _InventarioScreenState extends State<InventarioScreen> {
     });
   }
 
+  // // Función para ordenar y guardar las ventas en la colección "ventasOrdenadas"
+  // Future<void> orderAndSaveSales() async {
+  //   try {
+  //     // Obtén todas las ventas ordenadas por fecha
+  //     List<DocumentSnapshot> sortedSales = await getSalesOrderedByDate();
+
+  //     // Guarda las ventas ordenadas en la colección "ventasOrdenadas"
+  //     for (var sale in sortedSales) {
+  //       DateTime fechaVenta = (sale['fechaVenta'] as Timestamp).toDate();
+  //       String formattedDate =
+  //           '${fechaVenta.year}-${_twoDigits(fechaVenta.month)}';
+
+  //       // Agrega las ventas al documento correspondiente en "ventasOrdenadas"
+  //       await FirebaseFirestore.instance
+  //           .collection('ventasOrdenadas')
+  //           .doc(formattedDate)
+  //           .collection('ventas')
+  //           .add({
+  //         'venta': sale.id,
+  //         'clienteNombre': sale['clienteNombre'],
+  //         'coordenadas': sale['coordenadas'],
+  //         'facturada': sale['facturada'],
+  //         'fechaVenta': sale['fechaVenta'],
+  //         'informacionAdicional': sale['informacionAdicional'],
+  //         'montoTotal': sale['montoTotal'],
+  //       });
+  //     }
+
+  //     print('Ventas ordenadas y guardadas correctamente.');
+  //   } catch (e) {
+  //     print('Error al ordenar y guardar las ventas: $e');
+  //     // Puedes manejar el error de la forma que prefieras
+  //   }
+  // }
+
+  String _twoDigits(int n) {
+    if (n >= 10) return '$n';
+    return '0$n';
+  }
+
+  // Función para obtener las ventas ordenadas por fecha
+  Future<List<DocumentSnapshot>> getSalesOrderedByDate() async {
+    try {
+      // Realiza una consulta a la colección "ventas" ordenando por la fechaVenta
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('ventas')
+          .orderBy('fechaVenta', descending: true)
+          .get();
+
+      // Devuelve los documentos ordenados por fecha
+      return querySnapshot.docs;
+    } catch (e) {
+      // Maneja cualquier error que pueda ocurrir
+      print('Error al obtener las ventas: $e');
+      throw e; // Puedes manejar el error de la forma que prefieras
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,22 +157,6 @@ class _InventarioScreenState extends State<InventarioScreen> {
                   _isSearching = !_isSearching;
                   _clearSearch();
                 });
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: IconButton(
-              icon: Icon(
-                LineIcons.edit,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ClientListScreen(),
-                  ),
-                );
               },
             ),
           ),

@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
@@ -8,11 +7,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:line_icons/line_icons.dart';
-import 'package:ristos/screens/HomeScreen/EditProductAndClient/lista-de-clientes.dart';
-import 'package:ristos/screens/inventario/add-product.dart';
-import 'package:ristos/screens/inventario/inventario-screen.dart';
 
-class ProductListScreen extends StatelessWidget {
+class ProductListScreen extends StatefulWidget {
+  @override
+  State<ProductListScreen> createState() => _ProductListScreenState();
+}
+
+class _ProductListScreenState extends State<ProductListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,26 +39,6 @@ class ProductListScreen extends StatelessWidget {
 
           return Column(
             children: <Widget>[
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => AddProductScreen(),
-                    ),
-                  );
-                },
-                child: Text('Agregar Productos'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ClientListScreen(),
-                    ),
-                  );
-                },
-                child: Text('Agregar Clientes'),
-              ),
               Expanded(
                 child: ListView.builder(
                   itemCount: products.length,

@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ristos/screens/Opciones/configuracion.dart';
+import 'package:ristos/screens/drawer/drawer.dart';
 import 'package:ristos/screens/inventario/editar-productos.dart';
 import 'package:ristos/screens/inventario/inventario-screen.dart';
 import 'package:flutter/cupertino.dart';
 
 import '../HomeScreen/NuevaVenta.dart';
-import '../HomeScreen/Ventas/historial-ventas.dart';
+import '../HomeScreen/Ventas/Contado/historial-ventas.dart';
 
 class BottomNav extends StatefulWidget {
   @override
@@ -24,7 +26,6 @@ class _BottomNavState extends State<BottomNav> {
     InventarioScreen(),
     NuevaVenta(),
     ProductListScreen(),
-    HistorialVentasScreen(),
   ];
 
   // Método que maneja el evento de retroceso en el teléfono.
@@ -47,34 +48,12 @@ class _BottomNavState extends State<BottomNav> {
     }
 
     return WillPopScope(
+        onWillPop: onWillPop,
         child: Scaffold(
-          // appBar: AppBar(
-          //   toolbarHeight: 30,
-          //   backgroundColor:
-          //       const Color.fromARGB(255, 0, 0, 0), // Color de fondo del AppBar
-          //   elevation: 10, // Elevación del AppBar
-          //   flexibleSpace: SafeArea(
-          //     child: Container(
-          //       padding: const EdgeInsets.all(
-          //           12), // Espaciado interno del contenedor flexibleSpace
-          //       child: Row(
-          //         children: [
-          //           // Agrega elementos de encabezado aquí
-
-          //           const SizedBox(
-          //               width: 16), // Espacio entre el icono y el título
-          //           Text(
-          //             "Hola,", // Muestra el nombre del usuario aquí
-          //             style: TextStyle(color: Colors.white),
-          //           ),
-          //         ],
-          //       ),
-          //     ),
-          //   ),
-          // ),
           body: Center(
             child: _widgetOptions.elementAt(_selectedIndex),
           ),
+          drawer: GlobalDrawer(),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 0, 0, 0),
@@ -113,10 +92,6 @@ class _BottomNavState extends State<BottomNav> {
                       icon: LineIcons.fileInvoice,
                       text: 'Products',
                     ),
-                    GButton(
-                      icon: LineIcons.list,
-                      text: 'historial',
-                    ),
                   ],
                   selectedIndex: _selectedIndex,
                   onTabChange: (index) {
@@ -128,8 +103,7 @@ class _BottomNavState extends State<BottomNav> {
               ),
             ),
           ),
-        ),
-        onWillPop: onWillPop);
+        ));
   }
 }
 

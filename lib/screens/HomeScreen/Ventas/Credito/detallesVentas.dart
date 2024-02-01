@@ -7,23 +7,25 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 
-class DetalleVentaScreen extends StatefulWidget {
+class DetallesVentaCredito extends StatefulWidget {
   final QueryDocumentSnapshot sale;
 
-  const DetalleVentaScreen({Key? key, required this.sale}) : super(key: key);
+  const DetallesVentaCredito({Key? key, required this.sale}) : super(key: key);
 
   @override
-  _DetalleVentaScreenState createState() => _DetalleVentaScreenState();
+  _DetallesVentaCreditoState createState() => _DetallesVentaCreditoState();
 }
 
-class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
+class _DetallesVentaCreditoState extends State<DetallesVentaCredito> {
   bool? estaFacturada; // Nuevo estado para rastrear si la venta está facturada
   String? direccionCliente;
   String? tipoDocumentoCliente;
   String? numeroDocumentoCliente;
   String? vendedorCorreo;
   String? coordenadasTexto;
+  double? diferenciaMontos;
   bool isPanelExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -51,11 +53,124 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
         }
       });
     }
+
+    // Calcular la diferencia entre montoTotal y montoInicial
+    final montoTotal = saleData['montoTotal'] ?? 0.0;
+    final montoInicial = saleData['montoInicial'] ?? 0.0;
+    diferenciaMontos = montoTotal - montoInicial;
   }
 
   void actualizarFacturacionFirestore(bool newValue) async {
     // Actualiza el estado de facturación en Firestore
     await widget.sale.reference.update({'facturada': newValue});
+  }
+
+  void _mostrarDialogoAgregarPago() async {
+    TextEditingController montoController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text('Agregar Pago'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                CupertinoTextField(
+                  controller: montoController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  placeholder: 'Ingrese el monto',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              child: Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            CupertinoDialogAction(
+              child: Text('Agregar'),
+              onPressed: () async {
+                // Validar y procesar el monto ingresado
+                if (montoController.text.isNotEmpty) {
+                  double montoIngresado = double.parse(montoController.text);
+
+                  // Obtener datos de la venta
+                  Map<String, dynamic> saleData =
+                      widget.sale.data() as Map<String, dynamic>;
+
+                  // Obtener monto total y monto inicial actual
+                  double montoTotal = saleData['montoTotal'] ?? 0.0;
+                  double montoInicialActual = saleData['montoInicial'] ?? 0.0;
+
+                  // Calcular la deuda actual
+                  double deudaActual = montoTotal - montoInicialActual;
+
+                  // Validar si el monto ingresado es mayor a la deuda
+                  if (montoIngresado > deudaActual) {
+                    // Mostrar error
+                    Navigator.of(context).pop(); // Cerrar el diálogo actual
+                    _mostrarDialogoError(
+                        'El monto ingresado es mayor a la deuda actual.');
+                    return;
+                  }
+
+                  // Calcular la nueva diferencia
+                  double nuevoDiferenciaMontos =
+                      (montoTotal - (montoInicialActual + montoIngresado))
+                          .toDouble();
+
+                  // Actualizar en Firestore
+                  await widget.sale.reference.update({
+                    'montoInicial':
+                        (montoInicialActual + montoIngresado).toDouble(),
+                  });
+
+                  // Obtener los datos actualizados después de la actualización en Firestore
+                  DocumentSnapshot updatedSale =
+                      await widget.sale.reference.get();
+                  Map<String, dynamic> updatedSaleData =
+                      updatedSale.data() as Map<String, dynamic>;
+
+                  setState(() {
+                    // Actualizar en el estado local
+                    saleData['montoInicial'] =
+                        updatedSaleData['montoInicial'].toDouble();
+                    diferenciaMontos = montoTotal -
+                        (updatedSaleData['montoInicial'].toDouble());
+                  });
+
+                  Navigator.of(context).pop(); // Cerrar el diálogo actual
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _mostrarDialogoError(String mensaje) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text('Error'),
+          content: Text(mensaje),
+          actions: [
+            CupertinoDialogAction(
+              child: Text('Aceptar'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar el diálogo de error
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -73,6 +188,17 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: Icon(
+              CupertinoIcons.money_dollar_circle,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              _mostrarDialogoAgregarPago();
+            },
+          ),
+        ],
         leading: IconButton(
           icon: Icon(
             LineIcons.arrowLeft,
@@ -84,7 +210,7 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
         ),
         backgroundColor: Colors.black,
         title: Text(
-          'Detalles de Venta',
+          'Detalles de V.Credito',
           style: GoogleFonts.concertOne(fontSize: 22, color: Colors.white),
         ),
       ),
@@ -211,7 +337,6 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
               ),
             ),
             Divider(),
-
             ExpansionPanelList(
               elevation: 1,
               expandedHeaderPadding: EdgeInsets.all(0),
@@ -275,9 +400,6 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
                         Divider(
                           color: const Color.fromARGB(255, 70, 70, 70),
                         ),
-                        Divider(
-                          color: const Color.fromARGB(255, 70, 70, 70),
-                        ),
                         Text(
                             'Monto Total: \$${(saleData['montoTotal'] ?? 0.0).toStringAsFixed(2)}',
                             style: GoogleFonts.mPlus1Code(
@@ -297,6 +419,23 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
                         Divider(
                           color: const Color.fromARGB(255, 70, 70, 70),
                         ),
+                        if (diferenciaMontos != null)
+                          Text(
+                            'Debe: \$${diferenciaMontos!.toStringAsFixed(2)}',
+                            style: GoogleFonts.mPlus1Code(
+                              fontSize: 15,
+                              color: const Color.fromARGB(255, 255, 0, 0),
+                            ),
+                          ),
+                        const Divider(),
+                        Text(
+                          'Monto Inicial: \$${(saleData['montoInicial'] ?? 0.0).toStringAsFixed(2)}',
+                          style: GoogleFonts.mPlus1Code(
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const Divider(),
                         Text(
                             "Vendido por: ${saleData['vendedorCorreo'] ?? 'Nombre de Vendedor Desconocido'}",
                             style: GoogleFonts.mPlus1Code(
@@ -323,8 +462,8 @@ class _DetalleVentaScreenState extends State<DetalleVentaScreen> {
             // Agrega un checkbox para marcar si la venta está facturada
             Row(
               children: [
-                Text('Facturada: ',
-                    style: TextStyle(color: Colors.white, fontSize: 18)),
+                Text('Ya pago?: ',
+                    style: TextStyle(color: Colors.white, fontSize: 16)),
                 Checkbox(
                   value: estaFacturada ?? false,
                   onChanged: (newValue) {

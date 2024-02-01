@@ -61,9 +61,8 @@ class _NuevaVentaState extends State<NuevaVenta> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: const Color.fromRGBO(0, 0, 0, 1),
+        backgroundColor: Colors.black,
         appBar: AppBar(
-          toolbarHeight: 40,
           backgroundColor: const Color.fromARGB(255, 0, 0, 0),
           title: Text(
             'Nueva Venta',
@@ -651,9 +650,9 @@ class _NuevaVentaState extends State<NuevaVenta> {
                           width: 80,
                           height: 40,
                           child: TextFormField(
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
-                              focusedBorder: const OutlineInputBorder(
+                              focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
                               border: OutlineInputBorder(
@@ -672,10 +671,10 @@ class _NuevaVentaState extends State<NuevaVenta> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 70),
+                        SizedBox(width: 70),
                         Text(
                           'Stock: ${selectedProduct.stock}', // Asegúrate de tener la propiedad 'stock' en tu clase SelectedProduct
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                           ),
@@ -710,7 +709,7 @@ class _NuevaVentaState extends State<NuevaVenta> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     // Mientras se espera, puedes mostrar un indicador de carga o algún mensaje
-                    return const Text(
+                    return Text(
                       'Calculando utilidad...',
                       style: TextStyle(
                         fontSize: 18,
@@ -720,11 +719,11 @@ class _NuevaVentaState extends State<NuevaVenta> {
                     );
                   } else if (snapshot.hasError) {
                     // Si hay un error, puedes mostrar un mensaje de error
-                    return const Text(
+                    return Text(
                       'Error al calcular utilidad',
                       style: TextStyle(
                         fontSize: 18,
-                        color: Color.fromARGB(255, 255, 0, 0),
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     );
@@ -735,13 +734,19 @@ class _NuevaVentaState extends State<NuevaVenta> {
                       children: [
                         Text(
                           'Total: \$${totalAmount.toStringAsFixed(2)}',
-                          style: GoogleFonts.mPlus1Code(
-                              color: Colors.cyan, fontSize: 16),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           '  Utilidad: \$${totalProfit.toStringAsFixed(2)}',
-                          style: GoogleFonts.mPlus1Code(
-                              color: Colors.cyan, fontSize: 16),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     );
@@ -749,7 +754,7 @@ class _NuevaVentaState extends State<NuevaVenta> {
                 },
               ),
 
-              IconButton(
+              ElevatedButton(
                 onPressed: () {
                   showModalBottomSheet(
                     context: context,
@@ -757,20 +762,10 @@ class _NuevaVentaState extends State<NuevaVenta> {
                         true, // Para que el contenido sea desplazable
                     builder: (BuildContext context) {
                       return Container(
-                        color: Color.fromARGB(255, 44, 44, 44),
+                        color: const Color.fromARGB(255, 53, 53, 53),
                         height: 600,
                         child: Column(
                           children: <Widget>[
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                "Agregar Informacion Adicional",
-                                style: GoogleFonts.lato(
-                                    color:
-                                        const Color.fromARGB(255, 231, 211, 32),
-                                    fontSize: 18),
-                              ),
-                            ),
                             Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: TextField(
@@ -779,11 +774,9 @@ class _NuevaVentaState extends State<NuevaVenta> {
                                     text:
                                         additionalInfo), // Mostrar la información almacenada
                                 decoration: InputDecoration(
-                                  fillColor:
-                                      const Color.fromARGB(255, 78, 78, 78),
+                                  fillColor: Color.fromARGB(255, 78, 78, 78),
                                   filled: true,
-                                  labelStyle:
-                                      const TextStyle(color: Colors.white),
+                                  labelStyle: TextStyle(color: Colors.white),
                                   labelText: 'Agregar Información',
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
@@ -810,20 +803,17 @@ class _NuevaVentaState extends State<NuevaVenta> {
                     },
                   );
                 },
-                icon: const Icon(
-                  CupertinoIcons.arrow_up,
-                  color: Color.fromARGB(255, 255, 255, 255),
-                ),
+                child: Icon(LineIcons.arrowCircleUp),
               ),
-              const SizedBox(width: 10), // Espacio entre los botones
+              SizedBox(width: 10), // Espacio entre los botones
               AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
+                  duration: Duration(milliseconds: 300),
                   child: isSaving
-                      ? const CircularProgressIndicator() // Muestra un indicador de carga
+                      ? CircularProgressIndicator() // Muestra un indicador de carga
                       : ElevatedButton(
                           onPressed: () async {
                             setState(() {
-                              isSaving = true;
+                              isSaving = true; // Activa el indicador de carga
                             });
 
                             bool? isVentaAlContado =
@@ -834,12 +824,13 @@ class _NuevaVentaState extends State<NuevaVenta> {
                                 double? montoInicial =
                                     await showMontoInicialDialog();
                                 if (montoInicial != null) {
-                                  await saveVentaAlCreditoToFirestore(
+                                  await saveVentaAlContadoToFirestore(
                                       montoInicial);
                                 }
                               } else {
-                                await saveSaleAlContadoToFirestore(
-                                    isVentaAlContado); // Pasa el valor correcto
+                                bool isVentaCredito =
+                                    true; // Cambia a false si la venta no es a crédito
+                                await saveSaleToFirestore(isVentaCredito);
                               }
                             }
 
@@ -847,22 +838,7 @@ class _NuevaVentaState extends State<NuevaVenta> {
                               isSaving = false;
                             });
                           },
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: Colors.blue, // Color del texto
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  8.0), // Bordes redondeados
-                            ),
-                            elevation: 3.0, // Elevación del botón
-                            padding: EdgeInsets.symmetric(
-                                vertical: 16.0, horizontal: 24.0), // Padding
-                          ),
-                          child: Text(
-                            'Realizar Venta',
-                            style: GoogleFonts.lato(
-                                color: Colors.white, fontSize: 17),
-                          ),
+                          child: Text('Finalizar Venta'),
                         )),
             ],
           ),
@@ -876,9 +852,8 @@ class _NuevaVentaState extends State<NuevaVenta> {
       context: context,
       builder: (context) {
         return CupertinoAlertDialog(
-          title: const Text('Error de stock'),
-          content:
-              const Text('La cantidad ingresada es mayor al stock disponible.'),
+          title: Text('Error de stock'),
+          content: Text('La cantidad ingresada es mayor al stock disponible.'),
           actions: <Widget>[
             CupertinoDialogAction(
               onPressed: () {
@@ -1018,11 +993,11 @@ class _NuevaVentaState extends State<NuevaVenta> {
       context: context,
       builder: (context) {
         return CupertinoAlertDialog(
-          title: const Text(
+          title: Text(
             '¿Venta a crédito?',
             style: TextStyle(fontSize: 16),
           ),
-          content: const Text(
+          content: Text(
               '¿Esta venta es credito?, si no lo es selcciona "no", para realizar la venta al contado',
               style: TextStyle(fontSize: 16)),
           actions: <Widget>[
@@ -1045,24 +1020,24 @@ class _NuevaVentaState extends State<NuevaVenta> {
   }
 
   Future<double?> showMontoInicialDialog() async {
-    TextEditingController montoController = TextEditingController();
-
-    return await showCupertinoDialog<double>(
+    return await showDialog<double>(
       context: context,
       builder: (context) {
-        return CupertinoAlertDialog(
+        TextEditingController montoController = TextEditingController();
+
+        return AlertDialog(
           title: Text('Monto Inicial'),
           content: Column(
             children: [
               Text('Ingrese el monto inicial:'),
-              CupertinoTextField(
+              TextField(
                 controller: montoController,
                 keyboardType: TextInputType.number,
               ),
             ],
           ),
           actions: <Widget>[
-            CupertinoDialogAction(
+            TextButton(
               onPressed: () {
                 Navigator.of(context).pop(
                   double.tryParse(montoController.text),
@@ -1076,7 +1051,7 @@ class _NuevaVentaState extends State<NuevaVenta> {
     );
   }
 
-  Future<void> saveVentaAlCreditoToFirestore(double montoInicial) async {
+  Future<void> saveVentaAlContadoToFirestore(double montoInicial) async {
     String? userEmail = await getUserEmailFromFirestore();
 
     // Comprueba si la aplicación tiene permisos de ubicación
@@ -1139,14 +1114,12 @@ class _NuevaVentaState extends State<NuevaVenta> {
     String salesPathRistos = 'ventasRistos/$monthPath/semana$weekNumber';
 
     // Guarda en ambas colecciones
-    await saveSaleToCollection(
-        salesPathCredito, userEmail, position, montoInicial);
-    await saveSaleToCollection(
-        salesPathRistos, userEmail, position, montoInicial);
+    await saveSaleToCollection(salesPathCredito, userEmail, position);
+    await saveSaleToCollection(salesPathRistos, userEmail, position);
   }
 
-  Future<void> saveSaleToCollection(String salesPath, String? userEmail,
-      Position position, double montoInicial) async {
+  Future<void> saveSaleToCollection(
+      String salesPath, String? userEmail, Position position) async {
     // Obtén una referencia a la colección
     final saleDocument = FirebaseFirestore.instance.collection(salesPath);
 
@@ -1183,14 +1156,20 @@ class _NuevaVentaState extends State<NuevaVenta> {
       }
     }
 
-    // Añade el monto inicial al mapa de datos
+    // Crea un mapa con los detalles de la venta
     final saleData = {
       'clienteNombre': selectedClient,
       'montoTotal': calculateTotalAmount(),
-      'utilidad': await calculateTotalProfit(),
-      'montoInicial': montoInicial,
       "vendedorCorreo": userEmail,
-      'productos': productsData,
+      'productos': selectedProducts.map((product) {
+        return {
+          'nombre': product.productName,
+          'cantidad': product.cantidad,
+          'precio': product.modifiedPrice != 0.0
+              ? product.modifiedPrice
+              : product.originalPrice,
+        };
+      }).toList(),
       'fechaVenta': DateTime.now(),
       'informacionAdicional': additionalInfo,
       'coordenadas': GeoPoint(
@@ -1201,16 +1180,15 @@ class _NuevaVentaState extends State<NuevaVenta> {
     await saleDocument.add(saleData);
 
     // Muestra un mensaje de éxito
-    // ignore: use_build_context_synchronously
-    showCupertinoDialog(
+    showDialog(
       context: context,
       builder: (context) {
-        return CupertinoAlertDialog(
-          title: const Text('Venta Guardada'),
-          content: const Text('La venta se ha guardado con éxito.'),
+        return AlertDialog(
+          title: Text('Venta Guardada'),
+          content: Text('La venta se ha guardado con éxito.'),
           actions: <Widget>[
-            CupertinoDialogAction(
-              child: const Text('OK'),
+            TextButton(
+              child: Text('OK'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -1221,7 +1199,7 @@ class _NuevaVentaState extends State<NuevaVenta> {
     );
   }
 
-  Future<void> saveSaleAlContadoToFirestore(bool isVentaCredito) async {
+  Future<void> saveSaleToFirestore(bool isVentaCredito) async {
     String? userEmail =
         await getUserEmailFromFirestore(); // Obtiene el correo del usuario
 
@@ -1328,7 +1306,6 @@ class _NuevaVentaState extends State<NuevaVenta> {
     final saleData = {
       'clienteNombre': selectedClient,
       'montoTotal': calculateTotalAmount(),
-      'utilidad': await calculateTotalProfit(),
       "vendedorCorreo": userEmail,
       'productos': selectedProducts.map((product) {
         return {
@@ -1349,15 +1326,14 @@ class _NuevaVentaState extends State<NuevaVenta> {
     await saleDocument.add(saleData);
 
     // Muestra un mensaje de éxito
-    // ignore: use_build_context_synchronously
     showDialog(
       context: context,
       builder: (context) {
-        return CupertinoAlertDialog(
-          title: const Text('Venta Guardada'),
-          content: const Text('La venta se ha guardado con éxito.'),
+        return AlertDialog(
+          title: Text('Venta Guardada'),
+          content: Text('La venta se ha guardado con éxito.'),
           actions: <Widget>[
-            CupertinoDialogAction(
+            TextButton(
               child: Text('OK'),
               onPressed: () {
                 Navigator.of(context).pop();

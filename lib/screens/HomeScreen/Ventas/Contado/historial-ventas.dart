@@ -4,14 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:line_icons/line_icon.dart';
 import 'package:line_icons/line_icons.dart';
-import 'package:ristos/screens/HomeScreen/Ventas/EstadisticaVentas.dart';
+import 'package:ristos/screens/BarraEstadistica/BarraEstadistica.dart';
 
-import 'package:ristos/screens/HomeScreen/Ventas/gsnsncis.dart';
 import 'package:ristos/screens/components/detalles-venta.dart';
-import 'package:maps_launcher/maps_launcher.dart';
 
-import '../../components/detalles-productos-vendidos.dart';
+import '../../../components/detalles-productos-vendidos.dart';
 
 class HistorialVentasScreen extends StatefulWidget {
   const HistorialVentasScreen({
@@ -34,50 +33,92 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
   }
 
   Future<void> loadSales() async {
-    final salesQuery = await FirebaseFirestore.instance
-        .collection('ventas')
-        .orderBy('fechaVenta', descending: true)
-        .get();
+    try {
+      // Obtén el número del mes actual
+      int monthNumber = DateTime.now().month;
+      String formattedMonth = monthNumber.toString().padLeft(2, '0');
 
-    setState(() {
-      sales = salesQuery.docs;
+      // Calcula la semana actual del mes (considerando que un mes tiene 4 semanas)
+      int weekNumber = ((DateTime.now().day - 1) ~/ 7) + 1;
 
-      DateTime fechaActual = DateTime.now();
-      DateTime fechaInicioSemana = DateTime(fechaActual.year, fechaActual.month,
-          fechaActual.day - fechaActual.weekday + 1);
-      sales = salesQuery.docs.where((venta) {
-        final fechaVenta = venta["fechaVenta"] as Timestamp;
-        final fechaVentaDateTime = fechaVenta.toDate();
-        return fechaVentaDateTime.isAfter(fechaInicioSemana);
-      }).toList();
-      // Inicializar los elementos de expansión con fechas únicas
-      final uniqueDates = Set<String>();
-      sales.forEach((sale) {
-        final fechaVenta = sale['fechaVenta'] as Timestamp;
-        final formattedDate =
-            DateFormat('yyyy-MM-dd').format(fechaVenta.toDate());
-        uniqueDates.add(formattedDate);
+      // Construye la parte del camino correspondiente al mes en el formato deseado
+      String monthPath = '${DateTime.now().year}-$formattedMonth';
+
+      // Construye el camino completo de la colección
+      String salesPath = 'ventasRistos/$monthPath/semana$weekNumber';
+
+      // Obtén una referencia a la colección
+      final saleCollection = FirebaseFirestore.instance.collection(salesPath);
+
+      // Realiza la consulta y obtén los documentos
+      final salesQuery =
+          await saleCollection.orderBy('fechaVenta', descending: true).get();
+
+      setState(() {
+        // Inicializa la lista de ventas
+        sales = [];
+
+        // Inicializar los elementos de expansión con fechas únicas
+        final uniqueDates = Set<String>();
+
+        // Recorre los documentos obtenidos
+        salesQuery.docs.forEach((saleDoc) {
+          final saleData = saleDoc.data() as Map<String, dynamic>;
+          final fechaVenta = saleData['fechaVenta'] as Timestamp;
+          final formattedDate =
+              DateFormat('yyyy-MM-dd').format(fechaVenta.toDate());
+
+          // Agrega la fecha a las fechas únicas
+          uniqueDates.add(formattedDate);
+
+          // Agrega el documento a la lista de ventas
+          sales.add(saleDoc);
+        });
+
+        // Crear elementos de expansión para cada fecha única
+        expansionItems = uniqueDates.map((date) {
+          return ExpansionItem(date, <QueryDocumentSnapshot>[]);
+        }).toList();
+
+        // Agregar ventas a los elementos de expansión correspondientes
+        sales.forEach((saleDoc) {
+          final saleData = saleDoc.data() as Map<String, dynamic>;
+          final fechaVenta = saleData['fechaVenta'] as Timestamp;
+          final formattedDate =
+              DateFormat('yyyy-MM-dd').format(fechaVenta.toDate());
+
+          final item =
+              expansionItems.firstWhere((item) => item.date == formattedDate);
+          item.sales.add(saleDoc);
+        });
       });
-
-      // Crear elementos de expansión para cada fecha única
-      expansionItems = uniqueDates.map((date) {
-        return ExpansionItem(date, <QueryDocumentSnapshot>[]);
-      }).toList();
-
-      // Agregar ventas a los elementos de expansión correspondientes
-      sales.forEach((sale) {
-        final fechaVenta = sale['fechaVenta'] as Timestamp;
-        final formattedDate =
-            DateFormat('yyyy-MM-dd').format(fechaVenta.toDate());
-        final item =
-            expansionItems.firstWhere((item) => item.date == formattedDate);
-        item.sales.add(sale);
+    } catch (e) {
+      print('Error al cargar las ventas: $e');
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Error'),
+            content: Text(
+              'Hubo un error al cargar las ventas. Por favor, inténtalo de nuevo.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      // Cuando termines de cargar los datos, asegúrate de poner isRefreshing a false
+      setState(() {
+        isRefreshing = false;
       });
-    });
-    // Cuando termines de cargar los datos, asegúrate de poner isRefreshing a false
-    setState(() {
-      isRefreshing = false;
-    });
+    }
   }
 
   Future<void> _handleRefresh() async {
@@ -87,6 +128,81 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
       });
       await loadSales();
     }
+  }
+
+  Tuple2<double, double> calcularGananciasYUtilidadDiarias() {
+    double gananciasDiarias = 0;
+    double utilidadDiaria = 0;
+
+    // Filtrar las fechas únicas
+    Set<String> fechasUnicas = sales.map((venta) {
+      final fechaVenta = venta['fechaVenta'] as Timestamp;
+      return DateFormat('yyyy-MM-dd').format(fechaVenta.toDate());
+    }).toSet();
+
+    // Calcular las ventas totales y utilidades para cada día
+    for (String fecha in fechasUnicas) {
+      // Filtrar las ventas por fecha
+      List<QueryDocumentSnapshot> ventasDiarias = sales.where((venta) {
+        final fechaVenta = venta['fechaVenta'] as Timestamp;
+        return DateFormat('yyyy-MM-dd').format(fechaVenta.toDate()) == fecha;
+      }).toList();
+
+      // Sumar los montos totales y las utilidades de las ventas filtradas
+      double ventasTotalesDiarias = ventasDiarias
+          .map((venta) => (venta['montoTotal'] ?? 0.0) as double)
+          .fold(0, (prev, monto) => prev + monto);
+
+      double utilidadDiariaVentas = ventasDiarias
+          .map((venta) => (venta['utilidad'] ?? 0.0) as double)
+          .fold(0, (prev, utilidad) => prev + utilidad);
+
+      // Acumular los totales diarios
+      gananciasDiarias += ventasTotalesDiarias;
+      utilidadDiaria += utilidadDiariaVentas;
+    }
+
+    // Puedes imprimir la utilidad diaria si lo deseas
+    print('Utilidad Diaria: \$${gananciasDiarias.toStringAsFixed(2)}');
+    print('Utilidad Diaria: \$${utilidadDiaria.toStringAsFixed(2)}');
+
+    // Retorna la suma de montos totales y utilidades
+    return Tuple2(gananciasDiarias, utilidadDiaria);
+  }
+
+  Future<void> _mostrarInformacionModal(String date) async {
+    // Calcula las ganancias y utilidad diarias
+    Tuple2<double, double> resultados = calcularGananciasYUtilidadDiarias();
+
+    // Muestra el modal con la información
+    await showCupertinoDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text('Información Diaria - $date'),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Ganancias Diarias: \$${resultados.item1.toStringAsFixed(2)}',
+                style: TextStyle(fontSize: 18),
+              ),
+              Text('Utilidad Diaria: \$${resultados.item2.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 18)),
+            ],
+          ),
+          actions: <Widget>[
+            CupertinoDialogAction(
+              child: Text('Cerrar', style: TextStyle(fontSize: 18)),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget buildSaleItem(QueryDocumentSnapshot sale) {
@@ -140,46 +256,36 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                           CupertinoDialogAction(
                             child: Text('Eliminar'),
                             onPressed: () {
-                              // Muestra un diálogo de confirmación de eliminación usando Cupertino
-                              showCupertinoDialog(
-                                context: context,
-                                builder: (context) {
-                                  return CupertinoAlertDialog(
-                                    title: Text('Confirmación de Eliminación'),
-                                    content: Text(
-                                        '¿Estás seguro de que deseas eliminar esta venta?'),
-                                    actions: <Widget>[
-                                      CupertinoDialogAction(
-                                        child: Text('Cancelar'),
-                                        onPressed: () {
-                                          // Cierra el diálogo sin realizar ninguna acción
-                                          Navigator.of(context).pop();
-                                        },
-                                      ),
-                                      CupertinoDialogAction(
-                                          child: Text('Eliminar'),
-                                          onPressed: () {
-                                            // Resto del código...
+                              // Cierra el diálogo de confirmación
+                              Navigator.of(context).pop();
 
-                                            FirebaseFirestore.instance
-                                                .collection('ventas')
-                                                .doc(sale.id)
-                                                .delete()
-                                                .then((_) {
-                                              print(
-                                                  'Venta eliminada correctamente');
-                                            }).catchError((error) {
-                                              print(
-                                                  'Error al eliminar la venta: $error');
-                                            });
+                              // Obtén el número del mes actual
+                              int monthNumber = DateTime.now().month;
+                              String formattedMonth =
+                                  monthNumber.toString().padLeft(2, '0');
 
-                                            // Cierra el diálogo después de intentar eliminar la venta
-                                            Navigator.of(context).pop();
-                                          }),
-                                    ],
-                                  );
-                                },
-                              );
+                              // Calcula la semana actual del mes (considerando que un mes tiene 4 semanas)
+                              int weekNumber =
+                                  ((DateTime.now().day - 1) ~/ 7) + 1;
+
+                              // Construye la parte del camino correspondiente al mes en el formato deseado
+                              String monthPath =
+                                  '${DateTime.now().year}-$formattedMonth';
+
+                              // Construye el camino completo de la colección
+                              String salesPath =
+                                  'ventasRistos/$monthPath/semana$weekNumber';
+
+                              // Obtén una referencia a la colección
+                              final saleCollection = FirebaseFirestore.instance
+                                  .collection(salesPath);
+
+                              // Elimina la venta de la colección correcta
+                              saleCollection.doc(sale.id).delete().then((_) {
+                                print('Venta eliminada correctamente');
+                              }).catchError((error) {
+                                print('Error al eliminar la venta: $error');
+                              });
                             },
                           ),
                         ],
@@ -204,6 +310,13 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
     return Scaffold(
       backgroundColor: Colors.black, // Establecer el fondo negro aquí
       appBar: AppBar(
+        leading: IconButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            icon: LineIcon.arrowCircleLeft(
+              color: Colors.white,
+            )),
         actions: [
           Padding(
             padding: EdgeInsets.all(9.0),
@@ -215,19 +328,19 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
               ),
               onPressed: () {
                 Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => EstadisticaVentas()));
+                    builder: (context) => BarraEstadistica()));
               },
             ),
           )
         ],
         backgroundColor: Colors.black,
         title: Text(
-          'Historial de Ventas',
+          'Historial V.Contado',
           style: GoogleFonts.concertOne(fontSize: 22, color: Colors.white),
         ),
       ),
       body: isRefreshing
-          ? Center(
+          ? const Center(
               child:
                   CircularProgressIndicator()) // Muestra un indicador de progreso mientras se refresca
           : (expansionItems.isEmpty
@@ -336,16 +449,8 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                                       ),
                                       IconButton(
                                         onPressed: () {
-                                          //aqui redirije a otra screen en donde se mostrara dados de ventas por dia y semanal
-                                          Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      GananciasScreen(
-                                                        sales: sales,
-                                                        selectedDate:
-                                                            DateTime.parse(
-                                                                item.date),
-                                                      )));
+                                          // Llama a la función para mostrar la información en el modal
+                                          _mostrarInformacionModal(item.date);
                                         },
                                         icon: const Icon(LineIcons.history),
                                         color: Colors.white,
@@ -390,6 +495,13 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                 )),
     );
   }
+}
+
+class Tuple2<T1, T2> {
+  final T1 item1;
+  final T2 item2;
+
+  Tuple2(this.item1, this.item2);
 }
 
 class ExpansionItem {

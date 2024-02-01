@@ -253,20 +253,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return imageUrl;
   }
 
-  // Future<String> uploadImageToStorage(
-  //     XFile imageFile, String imageFileName) async {
-  //   final storage = FirebaseStorage.instance;
-  //   final storageRef = storage.ref().child('productos/$imageFileName');
-
-  //   final Uint8List imageBytes = await File(imageFile.path).readAsBytes();
-
-  //   await storageRef.putData(imageBytes);
-
-  //   final String imageUrl = await storageRef.getDownloadURL();
-
-  //   return imageUrl;
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

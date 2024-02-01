@@ -6,6 +6,8 @@ import 'package:line_icons/line_icons.dart';
 import 'package:ristos/screens/bottom-navigation/NavigationNavBAr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'user_provider.dart';
 
 class AuthenticationScreen extends StatelessWidget {
   @override
@@ -65,7 +67,7 @@ class AuthenticationScreen extends StatelessWidget {
                     height: 40,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        primary: Color.fromARGB(255, 32, 32, 32),
+                        backgroundColor: Color.fromARGB(255, 32, 32, 32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -89,7 +91,7 @@ class AuthenticationScreen extends StatelessWidget {
                     height: 40,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        primary: Color.fromARGB(255, 32, 32, 32),
+                        backgroundColor: Color.fromARGB(255, 32, 32, 32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -111,7 +113,7 @@ class AuthenticationScreen extends StatelessWidget {
                     height: 40,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        primary: Color.fromARGB(255, 32, 32, 32),
+                        backgroundColor: Color.fromARGB(255, 32, 32, 32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -323,6 +325,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         setState(() {
                           isLoading = false;
                         });
+
+                        // Obtén el usuario actualmente autenticado
+                        User? user = FirebaseAuth.instance.currentUser;
+
+                        // Actualiza el UserProvider con el usuario autenticado
+                        if (user != null) {
+                          context.read<UserProvider>().setUser(user);
+                        }
                       });
                     },
               child: isLoading

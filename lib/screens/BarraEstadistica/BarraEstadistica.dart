@@ -1,0 +1,809 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class BarraEstadistica extends StatefulWidget {
+  @override
+  _BarraEstadisticaState createState() => _BarraEstadisticaState();
+}
+
+class _BarraEstadisticaState extends State<BarraEstadistica> {
+  DateTime? startDate;
+  DateTime? endDate;
+  String totalAmount = '';
+  String utilidades = '';
+  String egresosAmount = '';
+  String ingresosAmount = '';
+
+  String totalAmountCache = '';
+  String utilidadesCache = '';
+  String egresosAmountCache = '';
+  String ingresosAmountCache = '';
+  DateTime? firstSaleDateCache;
+
+  DateTime? lastCacheClear;
+
+  Map<String, ProductDetails> productDetailsCache = {};
+  bool productsDetailsPanelIsExpanded = false;
+  Map<String, double> _egresosPorCategoriaCache = {};
+  Map<String, double> egresosPorCategoriaCache = {};
+
+  List<ExpansionPanelItem> egresosPorCategoriaExpansionPanel = [];
+
+  Map<String, double> egresosPorCategoria = {};
+  double totalEgresos = 0.0;
+  bool egresosPanelIsExpanded = false;
+  bool detalleEgresosPanelIsExpanded = false;
+  @override
+  void initState() {
+    super.initState();
+    // Carga la última vez que se borró la caché al inicializar el widget
+    _loadLastCacheClear();
+    _calculateTotalEgresos();
+    egresosPorCategoriaCache = _egresosPorCategoriaCache;
+  }
+
+  Future<void> _loadLastCacheClear() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastClearString = prefs.getString('lastCacheClear');
+
+      if (lastClearString != null) {
+        final lastClearTimestamp = DateTime.parse(lastClearString);
+        setState(() {
+          lastCacheClear = lastClearTimestamp;
+        });
+      }
+    } catch (e) {
+      print('Error al cargar la última vez que se borró la caché: $e');
+      // Tratar el error según tus necesidades
+    }
+  }
+
+  Future<void> _saveLastCacheClear() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentTimestamp = DateTime.now();
+      await prefs.setString(
+          'lastCacheClear', currentTimestamp.toIso8601String());
+
+      setState(() {
+        lastCacheClear = currentTimestamp;
+      });
+    } catch (e) {
+      print('Error al guardar la última vez que se borró la caché: $e');
+      // Tratar el error según tus necesidades
+    }
+  }
+
+  Future<void> _clearCacheIfNeeded() async {
+    try {
+      // Verifica si lastCacheClear es nulo o han pasado 4 días
+      if (lastCacheClear == null ||
+          DateTime.now().difference(lastCacheClear!) >= Duration(days: 7)) {
+        // Borra la caché
+        _clearCache();
+
+        // Actualiza la última vez que se borró la caché
+        await _saveLastCacheClear();
+      }
+    } catch (e) {
+      print('Error al borrar la caché: $e');
+      // Tratar el error según tus necesidades
+    }
+  }
+
+  Future<void> _clearCache() async {
+    // Lógica para borrar la caché
+    // Puedes implementar esto según cómo estés almacenando la caché en tu aplicación.
+    // Por ejemplo, podrías limpiar el contenido de productsSummaryCache.
+    setState(() {
+      totalAmountCache = '';
+      utilidadesCache = '';
+      egresosAmountCache = '';
+      ingresosAmountCache = '';
+      firstSaleDateCache = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color.fromARGB(255, 24, 24, 24),
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Color.fromARGB(255, 20, 20, 20),
+        title: Text(
+          'Ventas por Fecha',
+          style: GoogleFonts.montserrat(color: Colors.white, fontSize: 17),
+        ),
+      ),
+      body: Container(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text(
+                  "Sellecionar Rango de fechas",
+                  style: GoogleFonts.almendra(
+                      color: Colors.lightBlue, fontSize: 16),
+                ),
+                const Spacer(),
+                IconButton.outlined(
+                    onPressed: () {
+                      _selectDate(context);
+                    },
+                    icon: const Icon(
+                      CupertinoIcons.square_line_vertical_square_fill,
+                      color: Colors.white,
+                    ))
+              ],
+            ),
+
+            SingleChildScrollView(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          color: Colors.black),
+                      width: 160,
+                      height: 150,
+                      child: Container(
+                        padding: EdgeInsets.all(15),
+                        child: Column(
+                          children: [
+                            Text(
+                              "Monto Total",
+                              style: GoogleFonts.lato(
+                                  color: Colors.white, fontSize: 15),
+                            ),
+                            const SizedBox(
+                              height: 11,
+                            ),
+                            Text("S/ $totalAmount",
+                                style: GoogleFonts.lato(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color.fromARGB(255, 216, 20, 141),
+                                    fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          color: Colors.black),
+                      child: Container(
+                        width: 160,
+                        height: 150,
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Text(
+                              "Utilidades",
+                              style: GoogleFonts.lato(
+                                  color: Colors.white, fontSize: 15),
+                            ),
+                            const SizedBox(
+                              height: 19,
+                            ),
+                            Text(
+                              "S/ $utilidades",
+                              style: GoogleFonts.lato(
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 224, 86, 6),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        color: Colors.black),
+                    width: 160,
+                    height: 150,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 10, bottom: 10),
+                      child: Column(
+                        children: [
+                          Text(
+                            "Ingresos",
+                            style: GoogleFonts.lato(
+                                color: Colors.white, fontSize: 15),
+                          ),
+                          const SizedBox(
+                            height: 19,
+                          ),
+                          Text(ingresosAmount,
+                              style: GoogleFonts.lato(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 236, 87, 179),
+                                  fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        color: Colors.black),
+                    child: Container(
+                      width: 160,
+                      height: 150,
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Text(
+                            "Egresos",
+                            style: GoogleFonts.lato(
+                                color: Colors.white, fontSize: 15),
+                          ),
+                          const SizedBox(
+                            height: 19,
+                          ),
+                          Text(
+                            "S/ $egresosAmount",
+                            style: GoogleFonts.lato(
+                              fontWeight: FontWeight.bold,
+                              color: Color.fromARGB(255, 230, 105, 34),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+
+            Row(
+              children: [
+                Text(
+                  "Detalles:",
+                  style:
+                      GoogleFonts.alkalami(color: Colors.white, fontSize: 17),
+                ),
+                IconButton(
+                  icon: Icon(
+                    productsDetailsPanelIsExpanded
+                        ? CupertinoIcons.up_arrow
+                        : CupertinoIcons.arrow_down,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      productsDetailsPanelIsExpanded =
+                          !productsDetailsPanelIsExpanded;
+                    });
+                  },
+                ),
+              ],
+            ),
+            Divider(),
+            // Lista de productos vendidos
+            if (productsDetailsPanelIsExpanded)
+              Column(
+                children: [
+                  Divider(),
+                  // Lista de productos vendidos
+                  // Puedes mostrar los detalles de los productos aquí
+                  // usando productDetailsCache
+                  // Ejemplo:
+                  ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: productDetailsCache.length,
+                    itemBuilder: (context, index) {
+                      String productId =
+                          productDetailsCache.keys.elementAt(index);
+                      ProductDetails productDetails =
+                          productDetailsCache[productId]!;
+
+                      return ListTile(
+                        title: Text(
+                          productDetails.nombreProducto,
+                          style: GoogleFonts.actor(
+                              color: Colors.cyan, fontSize: 16),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Cantidad Vendida: ${productDetails.cantidadProducto} ",
+                              style: GoogleFonts.actor(
+                                  color: Colors.yellow, fontSize: 16),
+                            ),
+                            Text(
+                              " Precio: ${_formatCurrency(productDetails.precioProducto)}",
+                              style: GoogleFonts.actor(
+                                  color: Colors.yellow, fontSize: 16),
+                            ),
+
+                            // Agrega estas líneas para mostrar monto y utilidad por paquete
+                            Text(
+                              "Monto por paquete: ${_formatCurrency(productDetails.montoPorPaquete)}",
+                              style: GoogleFonts.actor(
+                                  color: Colors.yellow, fontSize: 16),
+                            ),
+                            Text(
+                                "Utilidad por paquete: ${_formatCurrency(productDetails.utilidadPorPaquete)}",
+                                style: GoogleFonts.actor(
+                                    color: Colors.yellow, fontSize: 16)),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            Row(
+              children: [
+                Text(
+                  "Detalles de Egresos:",
+                  style:
+                      GoogleFonts.alkalami(color: Colors.white, fontSize: 16),
+                ),
+                IconButton(
+                  icon: Icon(
+                    productsDetailsPanelIsExpanded
+                        ? CupertinoIcons.up_arrow
+                        : CupertinoIcons.arrow_down,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      detalleEgresosPanelIsExpanded =
+                          !detalleEgresosPanelIsExpanded;
+                    });
+                  },
+                ),
+              ],
+            ),
+            Divider(),
+// Lista de detalles de egresos por categoría
+            if (detalleEgresosPanelIsExpanded)
+              Column(
+                children: [
+                  Divider(),
+                  // Lista de detalles de egresos por categoría
+                  for (ExpansionPanelItem item
+                      in egresosPorCategoriaExpansionPanel)
+                    ListTile(
+                      title: Text(
+                        '${item.categoria}: ${_formatCurrency(item.monto)}',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 235, 222, 108),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    DateTime startDateLimit = DateTime(2024, 1, 1);
+    DateTime endDateLimit = DateTime.now();
+
+    DateTime? selectedStartDate = await showDatePicker(
+      context: context,
+      initialDate: startDate ?? DateTime.now(),
+      firstDate: startDateLimit,
+      lastDate: endDateLimit,
+    );
+
+    if (selectedStartDate != null) {
+      DateTime? selectedEndDate = await showDatePicker(
+        context: context,
+        initialDate: endDate ?? selectedStartDate,
+        firstDate: selectedStartDate,
+        lastDate: endDateLimit,
+      );
+      if (selectedEndDate != null) {
+        setState(() {
+          startDate = selectedStartDate;
+          endDate = selectedEndDate;
+        });
+
+        // Realizar la consulta a Firestore y calcular el monto total aquí
+        _calculateTotalAmount();
+        _calculateTotalEgresos();
+        _calculateTotalIngresos();
+      }
+    }
+  }
+
+  Future<DateTime?> _getFirstSaleDate() async {
+    try {
+      // Verifica si el resultado ya está en caché
+      if (firstSaleDateCache != null) {
+        return firstSaleDateCache;
+      }
+
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('ventasRistos')
+          .orderBy('fechaVenta', descending: false)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Obtener la fecha del primer registro
+        DateTime firstSaleDate =
+            (querySnapshot.docs.first['fechaVenta'] as Timestamp).toDate();
+        // Almacena en caché el resultado
+        firstSaleDateCache = firstSaleDate;
+        return firstSaleDate;
+      }
+
+      // No hay registros en la colección
+      return null;
+    } catch (e) {
+      print('Error al obtener la fecha del primer registro: $e');
+      return null;
+    }
+  }
+
+  Future<void> _calculateTotalAmount() async {
+    try {
+      if (startDate != null && endDate != null) {
+        if (totalAmountCache.isNotEmpty && utilidadesCache.isNotEmpty) {
+          setState(() {
+            this.totalAmount = totalAmountCache;
+            this.utilidades = utilidadesCache;
+          });
+          return;
+        }
+        // Calcular el número total de días entre las fechas seleccionadas
+        int daysDifference = endDate!.difference(startDate!).inDays + 1;
+
+        DateTime currentDate = startDate!;
+        double totalAmount = 0;
+        double totalUtilidades = 0;
+
+        Map<String, double> totalCantidadPorProducto = {};
+
+        for (int i = 0; i < daysDifference; i++) {
+          // Construir la ruta de la colección específica para las ventas
+          String monthPath =
+              '${currentDate.year}-${currentDate.month.toString().padLeft(2, '0')}';
+          int weekNumber = ((currentDate.day - 1) ~/ 7) + 1;
+          String salesPath = 'ventasRistos/$monthPath/semana$weekNumber';
+
+          // Realizar la consulta en la colección específica
+          QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+              .collection(salesPath)
+              .where('fechaVenta',
+                  isGreaterThanOrEqualTo: Timestamp.fromDate(currentDate))
+              .where('fechaVenta',
+                  isLessThanOrEqualTo:
+                      Timestamp.fromDate(currentDate.add(Duration(days: 1))))
+              .get();
+
+          querySnapshot.docs.forEach((doc) {
+            double montoTotal =
+                (doc['montoTotal'] ?? 0).toDouble(); // Convertir a double
+            double utilidadTotal = (doc['utilidad'] ?? 0).toDouble();
+            String clienteNombre = doc['clienteNombre'] ?? 'Sin nombre';
+            List<dynamic> productos = doc['productos'] ?? [];
+
+            totalAmount += montoTotal;
+            totalUtilidades += utilidadTotal;
+
+            // Actualiza los detalles del producto en el mapa
+            productos.forEach((producto) {
+              String nombreProducto = producto['nombre'] ?? 'Sin nombre';
+              double precioProducto =
+                  (producto['precio'] ?? 0).toDouble(); // Convertir a double
+              double cantidadProducto =
+                  (producto['cantidad'] ?? 0).toDouble(); // Convertir a double
+
+              String productId =
+                  nombreProducto; // Puedes ajustar según tu lógica
+
+              if (totalCantidadPorProducto.containsKey(productId)) {
+                if (totalCantidadPorProducto[productId] != null) {
+                  totalCantidadPorProducto[productId] =
+                      (totalCantidadPorProducto[productId] ?? 0) +
+                          cantidadProducto;
+                } else {
+                  totalCantidadPorProducto[productId] = cantidadProducto;
+                }
+              } else {
+                totalCantidadPorProducto[productId] = cantidadProducto;
+              }
+
+              if (!productDetailsCache.containsKey(productId)) {
+                productDetailsCache[productId] = ProductDetails(
+                  amount: montoTotal,
+                  utilidad: utilidadTotal,
+                  clienteNombre: clienteNombre,
+                  nombreProducto: nombreProducto,
+                  precioProducto: precioProducto,
+                  cantidadProducto: cantidadProducto,
+                  montoPorPaquete: precioProducto * cantidadProducto,
+                  utilidadPorPaquete: utilidadTotal * cantidadProducto,
+                );
+              } else {
+                // Acumula los montos si ya existe el producto en los detalles
+                productDetailsCache[productId]!.montoPorPaquete +=
+                    precioProducto * cantidadProducto;
+                productDetailsCache[productId]!.utilidadPorPaquete +=
+                    utilidadTotal * cantidadProducto;
+                // Puedes sumar otras propiedades si es necesario
+              }
+            });
+          });
+
+          // Avanzar al siguiente día para la próxima iteración
+          currentDate = currentDate.add(Duration(days: 1));
+        }
+
+        setState(() {
+          this.totalAmount = _formatCurrency(totalAmount);
+          this.utilidades = _formatCurrency(totalUtilidades);
+        }); // Muestra las cantidades totales de cada producto en el panel de detalles
+        // Muestra las cantidades totales de cada producto en el panel de detalles
+        totalCantidadPorProducto.forEach((productId, totalCantidad) {
+          if (productDetailsCache.containsKey(productId) &&
+              totalCantidad != null) {
+            productDetailsCache[productId]!.cantidadProducto = totalCantidad;
+          }
+        });
+
+        // Almacena en caché los resultados
+        totalAmountCache = this.totalAmount;
+        utilidadesCache = this.utilidades;
+      }
+    } catch (e) {
+      print('Error al calcular el monto total de ventas: $e');
+    }
+  }
+
+  String _formatCurrency(double amount) {
+    // Lógica de formato de moneda aquí (puedes usar el paquete intl, por ejemplo)
+    // Ejemplo simple:
+    return '\$${amount.toStringAsFixed(2)}';
+  }
+
+  Future<void> _calculateTotalEgresos() async {
+    try {
+      if (startDate != null && endDate != null) {
+        // Verifica si los resultados ya están en caché
+        if (egresosAmountCache.isNotEmpty &&
+            _egresosPorCategoriaCache.isNotEmpty) {
+          setState(() {
+            this.egresosAmount = egresosAmountCache;
+            egresosPorCategoriaExpansionPanel = _egresosPorCategoriaCache.keys
+                .map((categoria) => ExpansionPanelItem(
+                    categoria: categoria,
+                    monto: _egresosPorCategoriaCache[categoria] ?? 0.0))
+                .toList();
+          });
+          return;
+        }
+
+        // Inicializar total de egresos y egresos por categoría
+        double totalEgresos = 0.0;
+        Map<String, double> egresosPorCategoria = {}; // Inicializa aquí
+
+        DateTime currentDate = startDate!;
+        int monthNumber = currentDate.month;
+
+        // Construye la parte del camino correspondiente al mes en el formato deseado
+        String formattedMonth = monthNumber.toString().padLeft(2, '0');
+        String monthPath = '${currentDate.year}-$formattedMonth';
+
+        // Calcular el número total de semanas en el mes seleccionado
+        int totalWeeksInMonth = ((currentDate.day - 1) ~/ 7) + 1;
+
+        // Iterar sobre todas las semanas del mes
+        for (int weekNumber = 1;
+            weekNumber <= totalWeeksInMonth;
+            weekNumber++) {
+          // Construir la ruta de la semana para los egresos (ajusta según tu estructura)
+          String egresosPath = 'egresos/$monthPath/semana$weekNumber';
+
+          // Realizar la consulta en la subcolección de egresos de la semana actual
+          QuerySnapshot egresosQuerySnapshot =
+              await FirebaseFirestore.instance.collection(egresosPath).get();
+
+          // Sumar los montos de egresos de la semana actual
+          egresosQuerySnapshot.docs.forEach((egresoDoc) {
+            dynamic montoValue = egresoDoc['monto'];
+            String categoria = egresoDoc['categoria'] ?? 'Otros';
+
+            if (montoValue is num) {
+              totalEgresos += montoValue.toDouble();
+            } else if (montoValue is String) {
+              try {
+                totalEgresos += double.parse(montoValue);
+              } catch (e) {
+                print('Error al convertir el valor del monto a double: $e');
+              }
+            }
+
+            if (egresosPorCategoria.containsKey(categoria)) {
+              // Verificar si la clave existe antes de intentar incrementar
+              egresosPorCategoria[categoria] =
+                  (egresosPorCategoria[categoria] ?? 0) +
+                      (montoValue is num
+                          ? montoValue.toDouble()
+                          : double.parse(montoValue));
+            } else {
+              egresosPorCategoria[categoria] = montoValue is num
+                  ? montoValue.toDouble()
+                  : double.parse(montoValue);
+            }
+          });
+
+          print('Egresos en el rango de fechas: $totalEgresos');
+          print('Detalles de egresos por categoría: $egresosPorCategoria');
+          print('Total de egresos en la semana $weekNumber: $totalEgresos');
+        }
+
+        // Puedes utilizar el valor totalEgresos como necesites
+        print('Egresos en el rango de fechas: $totalEgresos');
+
+        setState(() {
+          // Actualizar la lista de ExpansionPanelItems
+          egresosPorCategoriaExpansionPanel = egresosPorCategoria.keys
+              .map((categoria) => ExpansionPanelItem(
+                  categoria: categoria,
+                  monto: egresosPorCategoria[categoria] ?? 0.0))
+              .toList();
+          egresosPanelIsExpanded = !egresosPanelIsExpanded;
+        });
+
+        // Actualizar la interfaz de usuario si es necesario
+        this.egresosAmount = _formatCurrency(totalEgresos);
+
+        // Almacena en caché los resultados
+        egresosAmountCache = this.egresosAmount;
+        _egresosPorCategoriaCache = egresosPorCategoria;
+      }
+    } catch (e) {
+      print('Error al calcular los egresos: $e');
+      // Tratar el error según tus necesidades
+    }
+  }
+
+  Future<void> _calculateTotalIngresos() async {
+    try {
+      if (startDate != null && endDate != null) {
+        // Verifica si los resultados ya están en caché
+        if (ingresosAmountCache.isNotEmpty) {
+          setState(() {
+            this.ingresosAmount = ingresosAmountCache;
+          });
+          return;
+        }
+
+        DateTime currentDate = startDate!;
+        int monthNumber = currentDate.month;
+
+        // Construye la parte del camino correspondiente al mes en el formato deseado
+        String formattedMonth = monthNumber.toString().padLeft(2, '0');
+        String monthPath = '${currentDate.year}-$formattedMonth';
+
+        // Calcular el número total de semanas en el mes seleccionado
+        int totalWeeksInMonth = ((currentDate.day - 1) ~/ 7) + 1;
+
+        // Inicializar el total de ingresos
+        double totalIngresos = 0.0;
+
+        // Iterar sobre todas las semanas del mes
+        for (int weekNumber = 1;
+            weekNumber <= totalWeeksInMonth;
+            weekNumber++) {
+          // Construir la ruta de la semana para los ingresos (ajusta según tu estructura)
+          String ingresosPath = 'ingresos/$monthPath/semana$weekNumber';
+
+          // Realizar la consulta en la subcolección de ingresos de la semana actual
+          QuerySnapshot ingresosQuerySnapshot =
+              await FirebaseFirestore.instance.collection(ingresosPath).get();
+
+          // Sumar los montos de ingresos de la semana actual
+          ingresosQuerySnapshot.docs.forEach((ingresoDoc) {
+            dynamic montoValue = ingresoDoc['monto'];
+            if (montoValue is num) {
+              totalIngresos += montoValue;
+            } else if (montoValue is String) {
+              try {
+                totalIngresos += double.parse(montoValue);
+              } catch (e) {
+                print('Error al convertir el valor del monto a double: $e');
+              }
+            }
+          });
+
+          print('Total de ingresos en la semana $weekNumber: $totalIngresos');
+        }
+
+        // Puedes utilizar el valor totalIngresos como necesites
+        print('Ingresos en el rango de fechas: $totalIngresos');
+
+        // Actualizar la interfaz de usuario si es necesario
+        setState(() {
+          this.ingresosAmount = totalIngresos.toStringAsFixed(2);
+        });
+
+        ingresosAmountCache = this.ingresosAmount;
+      }
+    } catch (e) {
+      print('Error al calcular los ingresos: $e');
+      // Tratar el error según tus necesidades
+    }
+  }
+}
+
+class ProductDetails {
+  double amount;
+  double utilidad;
+  String clienteNombre;
+  String nombreProducto;
+  double precioProducto;
+  double cantidadProducto;
+  double montoPorPaquete;
+  double utilidadPorPaquete;
+
+  ProductDetails({
+    required this.amount,
+    required this.utilidad,
+    required this.clienteNombre,
+    required this.nombreProducto,
+    required this.precioProducto,
+    required this.cantidadProducto,
+    required this.montoPorPaquete,
+    required this.utilidadPorPaquete,
+  });
+}
+
+// Añadir esta parte al final del archivo
+class ExpansionPanelItem {
+  String categoria;
+  double monto;
+  bool isExpanded;
+
+  ExpansionPanelItem({
+    required this.categoria,
+    required this.monto,
+    this.isExpanded = false,
+  });
+}
